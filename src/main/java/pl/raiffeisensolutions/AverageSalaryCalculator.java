@@ -1,8 +1,11 @@
 package pl.raiffeisensolutions;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -10,78 +13,66 @@ import java.util.*;
 
 class AverageSalaryCalculator {
 
-    private NumberFormat polishParser;
+    private NumberFormat spanishParser;
 
     AverageSalaryCalculator(Locale locale) {
         // TODO create currency parser here and store it for the needs of salary parsing
 
-        this.polishParser = DecimalFormat.getInstance(locale);
-        ((DecimalFormat) this.polishParser).setParseBigDecimal(true);
+        this.spanishParser = DecimalFormat.getInstance(locale);
+        ((DecimalFormat) this.spanishParser).setParseBigDecimal(true);
     }
 
     BigDecimal calculate(String inputFile) {
         // TODO use the other methods to calculate average salary. There is no need to use variables here.
-        List<String> readlines_tmp = new ArrayList<String>();
-        List<BigDecimal> listBigDecimal_tmp = new ArrayList<BigDecimal>();
+        List<String> readlines_tmp = new ArrayList<>();
+        List<BigDecimal> listBigDecimal_tmp = new ArrayList<>();
 
-        readlines_tmp = readLines(inputFile);
-     //   System.out.println("Reading input file:");
-     //   System.out.println(readlines_tmp);
-
-        readlines_tmp = removeHeader(readlines_tmp);
-     //   System.out.println("Removing header line:");
-     //   System.out.println(readlines_tmp);
-
-        readlines_tmp = getSalaryColumn(readlines_tmp);
-     //   System.out.println("Reading salary column:");
-     //   System.out.println(readlines_tmp);
-
-        listBigDecimal_tmp = parseSalaries(readlines_tmp);
-     //   System.out.println("BigDecimals list:");
-     //   System.out.println(listBigDecimal_tmp);
-
-
-     //   System.out.println("Avarage salaries:");
-     //   System.out.println(calculateAverage(listBigDecimal_tmp));
-
-        return calculateAverage(listBigDecimal_tmp);
+        return calculateAverage(
+                                parseSalaries(
+                                                getSalaryColumn(
+                                                                    removeHeader(
+                                                                                    readLines(inputFile)))));
     }
 
     private BigDecimal calculateAverage(List<BigDecimal> salaries) {
         // TODO calculate average of the passed salaries
-        BigDecimal avarageSalaries = BigDecimal.ZERO;
-        for (int i=0; i< salaries.size();i++)
-        {
-            avarageSalaries = avarageSalaries.add(salaries.get(i));
-        }
+        BigDecimal avarageSalaries;
+        BigDecimal sumSalaries = summingSalaries(salaries);
 
-        avarageSalaries = avarageSalaries.divide(new BigDecimal(salaries.size()));
+        avarageSalaries = sumSalaries.divide(new BigDecimal(salaries.size())).setScale(2, RoundingMode.HALF_UP);
 
         return avarageSalaries;
+    }
+
+    private BigDecimal summingSalaries(List<BigDecimal> salaries) {
+        BigDecimal sumSalaries = BigDecimal.ZERO;
+        for (BigDecimal item : salaries) {
+            sumSalaries = sumSalaries.add(item);
+        }
+        return sumSalaries;
+
     }
 
     private List<BigDecimal> parseSalaries(List<String> salaryStrings) {
         // TODO return BigDecimal representation of the salary
 
-        List<BigDecimal> listBigDecimal = new ArrayList<BigDecimal>();
+        List<BigDecimal> listBigDecimal = new ArrayList<>();
 
-        for(int i=0; i<salaryStrings.size();i++) {
-            String toParse = salaryStrings.get(i);
+        for (String item : salaryStrings){
             try{
-               // NumberFormat polishParser = DecimalFormat.getInstance(new Locale("es", "ES"));
-              //  ((DecimalFormat) polishParser).setParseBigDecimal(true);
-                Number parsed = polishParser.parse(toParse);
-                //NumberFormat spanishParser = DecimalFormat.getInstance(new Locale("es", "ES"));
-                //((DecimalFormat) spanishParser).setParseBigDecimal(true);
-                //Number parsed = spanishParser.parse(toParse);
-                BigDecimal parsedBigDecimal = (BigDecimal) parsed;
-                listBigDecimal.add(parsedBigDecimal);
-
+                parsingOneRaw(listBigDecimal, item);
             } catch (ParseException e) {
                 e.printStackTrace();
             }
-        }
+
+            }
         return listBigDecimal;
+    }
+
+    private void parsingOneRaw(List<BigDecimal> listBigDecimal, String toParse) throws ParseException {
+        Number parsed = spanishParser.parse(toParse);
+        BigDecimal parsedBigDecimal = (BigDecimal) parsed;
+        listBigDecimal.add(parsedBigDecimal);
     }
 
 
@@ -89,32 +80,37 @@ class AverageSalaryCalculator {
         // TODO trim all the lines ton contain only salary column i.e. from every line in format "John Smith;999999" create "999999"
         List<String> listString = new ArrayList<>();
         String[] string_tmp = new String[2];
+        for (String item : csvLinesWithoutHeader) {
 
-      for(int i=0; i<csvLinesWithoutHeader.size();i++)
-      {
-
-          string_tmp = csvLinesWithoutHeader.get(i).split(";");
-
-          listString.add(string_tmp[1]);
+            getSalaryValue(listString, item);
 
       }
       return listString;
     }
 
+    private void getSalaryValue(List<String> listString, String item) {
+        String[] string_tmp;
+        string_tmp = item.split(";");
+
+        listString.add(string_tmp[1]);
+    }
+
 
     private List<String> removeHeader(List<String> lines) {
         // TODO remove the first line of the file containing the header
-        lines.remove(0);
-
-        return lines;
+        if(lines.size() < 2) {
+            System.out.println("File does not contain any data.");
+            System.exit(2);
+        }
+        return new ArrayList(lines.subList(1,lines.size()));
 
     }
 
     private List<String> readLines(String inputFile) {
         // TODO read all the lines of the file and store them as a list
-        List<String> listString = new ArrayList<String>();
+        List<String> listString = new ArrayList<>();
         try {
-            FileInputStream fis = new FileInputStream(inputFile);
+            File fis = new File(inputFile);
             Scanner scanner = new Scanner(fis);
 
 
@@ -127,8 +123,7 @@ class AverageSalaryCalculator {
             e.printStackTrace();
         }
 
-        if(listString.size() < 2)
-            throw new EmptyStackException();
+
 
     return listString;
 
